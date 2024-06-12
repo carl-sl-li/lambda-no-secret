@@ -28,26 +28,11 @@ export class LambdaNoSecretStack extends cdk.Stack {
       }  
     }
 
-    // Create sns policy needed for the lambda functions.
-    const snsPolicy = new iam.PolicyStatement({
-      actions: ["sns:publish"],
-      effect: iam.Effect.ALLOW,
-      resources: [billSnsTopic.topicArn],
-      sid: "AllowSnsAccess",
-    });
-
-    const cePolicy = new iam.PolicyStatement({
-      actions: ["ce:Get*"],
-      effect: iam.Effect.ALLOW,
-      resources: ['*'],
-      sid: "CostExplorerReadOnlyAccess",
-    });
-
     // Create a lambda role that will authenticate to vault
     const vaultLambdaRole = new iam.Role(this, 'vaultLambdaRole', {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName("AWSBillingReadOnlyAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSLambdaBasicExecutionRole')
       ],
       roleName: 'VaultLambdaRole',
     });
