@@ -12,8 +12,9 @@ export class LambdaNoSecretStack extends cdk.Stack {
     super(scope, id, props);
 
     const configProp: {
-      vaultPaths: string[],
       emailSubs?: string[],
+      vaultAWSRole: string,
+      vaultUrl: string,
     } = config.get('lambdaProps');
 
     // Create sns topic and add email subscriptions
@@ -42,19 +43,41 @@ export class LambdaNoSecretStack extends cdk.Stack {
       sid: "CostExplorerReadOnlyAccess",
     });
 
+    // Create a lambda role that will authenticate to vault
+    const vaultLambdaRole = new iam.Role(this, 'vaultLambdaRole', {
+      assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AWSBillingReadOnlyAccess"),
+      ],
+      roleName: 'VaultLambdaRole',
+    });
+
+    // Create a shared lambda layer.
+    const sharedLayer = new lambda.LayerVersion(this, 'shared-layer', {
+      code: lambda.Code.fromAsset("./python_layers"),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_9],
+      layerVersionName: 'shared-layer',
+    });
+
     // Create a lambda function that will be check last month bills.
     const billLambda = new lambda.Function(this, 'billLambda', {
       code: lambda.Code.fromAsset(join(__dirname, "..", "handler")),
       handler: "checklastmonth.lambda_handler",
       runtime: lambda.Runtime.PYTHON_3_9,
+      role: vaultLambdaRole,
       environment: {
         SNS_ARN: billSnsTopic.topicArn,
         REGION: this.region,
-        VAULTPATHS: configProp.vaultPaths.join(),
+        VAULTAWSPATHS: configProp.vaultAWSRole,
+        VAULTURL: configProp.vaultUrl,
       },
       timeout: cdk.Duration.seconds(30),
+      layers: [sharedLayer],
     });
-    billLambda.addToRolePolicy(snsPolicy);
-    billLambda.addToRolePolicy(cePolicy);
+
+    new cdk.CfnOutput(this, 'roleArn',{
+      description: 'Role Arn',
+      value: vaultLambdaRole.roleArn
+    });
   }
 }

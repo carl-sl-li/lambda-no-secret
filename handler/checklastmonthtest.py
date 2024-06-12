@@ -51,26 +51,24 @@ def aws_last_mth_bill(start, end, vaultcreds):
         raise e
 
 def send_sns(message, subject, topic, vaultcreds):
-    client = boto3.client(
+    sns_client = boto3.client(
         "sns",
         aws_access_key_id=vaultcreds['access_key'],
         aws_secret_access_key=vaultcreds['secret_key'],
         aws_session_token=vaultcreds['session_token']        
     )
-    client.publish(TopicArn=topic, Message=message, Subject=subject)
+    sns_client.publish(TopicArn=topic, Message=message, Subject=subject)
 
-def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
-    # Process AWS Bill
-    aws_creds=get_aws_creds(os.environ['VAULTAWSPATHS'])
-    aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
-    # Process GCP Bill
+# Process AWS Bill
+aws_creds=get_aws_creds('aws/roles/lambda_role')
+aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
+# Process GCP Bill
 
-    # Prepare and send SNS subject and message
-    subject = 'Last Month Cloud Bills'
-    message= (
-        f"AWS Bill for last month is ${aws_bill}\n"
-        + "GCP Bill for last month is $\n"
-        + "Azure Bill for last month is $\n"
-    )
-    send_sns(message, subject, os.environ["SNS_ARN"], aws_creds)
+# Prepare and send SNS subject and message
+subject = 'Last Month Cloud Bills'
+message= (
+    f"AWS Bill for last month is ${aws_bill}\n"
+    + "GCP Bill for last month is $\n"
+    + "Azure Bill for last month is $\n"
+)
+send_sns(message, subject, os.environ["SNS_ARN"], aws_creds)
