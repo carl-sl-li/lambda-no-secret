@@ -1,3 +1,8 @@
 lambdaProps:
-  zoneName: 'vault.sandpit2.learncmd.com.au'
-  zoneId: 'Z02096331XP7BFNIPM2LU'
+  vaultPaths: 
+    - '/aws/roles/something1'
+    - '/aws/roles/something2'
+  emailSubs:
+    - 'carl.li@mantelgroup.com.au'
+  tags:
+    DONOTDELETE: 'true'

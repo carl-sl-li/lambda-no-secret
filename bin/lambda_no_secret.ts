@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { LambdaNoSecretStack } from '../lib/lambda_no_secret-stack';
+import { LambdaNoSecretStack } from '../lib/lambda-no-secret-stack';
 import * as config from 'config';
 
 const app = new cdk.App();
@@ -19,4 +19,9 @@ new LambdaNoSecretStack(app, 'LambdaNoSecretStack', {
   // env: { account: '123456789012', region: 'us-east-1' },
 
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+});
+const Tags: Record<string, string> = config.get('lambdaProps.tags');
+// Add a tag to all constructs in the stack
+Object.entries(Tags).forEach(([key, value]) => {
+  cdk.Tags.of(app).add(key, value)
 });
