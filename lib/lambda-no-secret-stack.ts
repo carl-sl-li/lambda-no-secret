@@ -52,6 +52,13 @@ export class LambdaNoSecretStack extends cdk.Stack {
       roleName: 'VaultLambdaRole',
     });
 
+    // Create a shared lambda layer.
+    const sharedLayer = new lambda.LayerVersion(this, 'shared-layer', {
+      code: lambda.Code.fromAsset("./python_layers"),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_9],
+      layerVersionName: 'shared-layer',
+    });
+
     // Create a lambda function that will be check last month bills.
     const billLambda = new lambda.Function(this, 'billLambda', {
       code: lambda.Code.fromAsset(join(__dirname, "..", "handler")),
@@ -65,6 +72,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
         VAULTURL: configProp.vaultUrl,
       },
       timeout: cdk.Duration.seconds(30),
+      layers: [sharedLayer],
     });
 
     new cdk.CfnOutput(this, 'roleArn',{
