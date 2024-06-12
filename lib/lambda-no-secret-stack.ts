@@ -42,6 +42,15 @@ export class LambdaNoSecretStack extends cdk.Stack {
       sid: "CostExplorerReadOnlyAccess",
     });
 
+    // Create a lambda role that will authenticate to vault
+    const vaultLambdaRole = new iam.Role(this, 'vaultLambdaRole', {
+      assumedBy: new iam.AccountRootPrincipal,
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AWSBillingReadOnlyAccess"),
+      ],
+      roleName: 'VaultLambdaRole',
+    });
+
     // Create a lambda function that will be check last month bills.
     const billLambda = new lambda.Function(this, 'billLambda', {
       code: lambda.Code.fromAsset(join(__dirname, "..", "handler")),
