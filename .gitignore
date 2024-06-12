@@ -2,6 +2,8 @@
 !jest.config.js
 *.d.ts
 node_modules
+python_layers/python/*
+!python_layers/requirements.txt
 
 # CDK asset staging directory
 .cdk.staging
