@@ -1,6 +1,6 @@
 lambdaProps:
   vaultUrl: http://vault.sandpit2.learncmd.com.au:8200
-  vaultAWSRole: 'aws/roles/lambda_role'
+  vaultAWSRole: 'aws/sandpit2/roles/lambda_role'
   emailSubs:
     - 'carl.li@mantelgroup.com.au'
   tags:
