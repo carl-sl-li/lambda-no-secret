@@ -1,4 +1,5 @@
 lambdaProps:
+  checkBillCron: 0 22 ? * SUN *
   vaultUrl: http://vault.sandpit2.learncmd.com.au:8200
   vaultAWSRole: 'aws/sandpit2/roles/lambda_role'
   emailSubs:

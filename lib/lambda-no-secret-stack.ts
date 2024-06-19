@@ -5,6 +5,8 @@ import * as config from 'config';
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import { Rule, Schedule } from "aws-cdk-lib/aws-events"
+import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 
 export class LambdaNoSecretStack extends cdk.Stack {
@@ -12,6 +14,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
     super(scope, id, props);
 
     const configProp: {
+      checkBillCron: string;
       emailSubs?: string[],
       vaultAWSRole: string,
       vaultUrl: string,
@@ -59,6 +62,13 @@ export class LambdaNoSecretStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       layers: [sharedLayer],
     });
+
+    // Create event rule to trigger the lambda function.
+    const billCron = configProp.checkBillCron
+    new Rule(this, 'weeklycron', {
+      ruleName: 'check-bill-weekly',
+      schedule: Schedule.expression(`cron(${billCron})`),
+    }).addTarget(new LambdaFunction(billLambda));
 
     new cdk.CfnOutput(this, 'roleArn',{
       description: 'Role Arn',
