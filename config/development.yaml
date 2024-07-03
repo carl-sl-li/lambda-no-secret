@@ -2,8 +2,9 @@ lambdaProps:
   checkBillCron: 0 22 ? * SUN *
   vaultUrl: http://vault.sandpit2.learncmd.com.au:8200
   vaultAWSRole: 'aws/sandpit2/roles/lambda_role'
+  vaultGCPRoleSet: 'gcp/roleset/edu-app-key'
   gcpBillId: '015B65-6F3F53-9191BF'
   emailSubs:
     - 'carl.li@mantelgroup.com.au'
   tags:
-    DONOTDELETE: 'true'
+    DoNotNuke: 'true'

@@ -17,6 +17,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
       checkBillCron: string;
       emailSubs?: string[],
       vaultAWSRole: string,
+      vaultGCPRoleSet: string,
       vaultUrl: string,
     } = config.get('lambdaProps');
 
@@ -40,6 +41,12 @@ export class LambdaNoSecretStack extends cdk.Stack {
       roleName: 'VaultLambdaRole',
     });
 
+    vaultLambdaRole.assumeRolePolicy?.addStatements(new iam.PolicyStatement({
+      actions: ['sts:AssumeRole'],
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.AccountPrincipal(this.account)],
+    }));
+
     // Create a shared lambda layer.
     const sharedLayer = new lambda.LayerVersion(this, 'shared-layer', {
       code: lambda.Code.fromAsset("./python_layers"),
@@ -57,6 +64,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
         SNS_ARN: billSnsTopic.topicArn,
         REGION: this.region,
         VAULTAWSPATHS: configProp.vaultAWSRole,
+        VAULTGCPPATHS: configProp.vaultGCPRoleSet,
         VAULTURL: configProp.vaultUrl,
       },
       timeout: cdk.Duration.seconds(30),

@@ -1,11 +1,15 @@
 from datetime import date, timedelta
 from decimal import Decimal
-import os
+import base64
 import json
+import os
 import boto3
 import hvac
 
 print("Loading function")
+
+# Define Vault python client
+vault_client = hvac.Client(url=os.environ['VAULTURL'])
 
 today = date.today()
 firstofmonth = today.replace(day=1)
@@ -13,9 +17,11 @@ lastmonth = firstofmonth - timedelta(days=1)
 startdate = lastmonth.strftime('%Y-%m')+'-01'
 enddate = today.strftime('%Y-%m')+'-01'
 
-def get_aws_creds(path):
-    vault_client = hvac.Client(url=os.environ['VAULTURL'])
+def auth_to_vault():
     vault_client.auth.aws.iam_login(os.environ['AWS_ACCESS_KEY_ID'], os.environ['AWS_SECRET_ACCESS_KEY'], os.environ['AWS_SESSION_TOKEN'])
+
+# AWS Get Usage Functions
+def get_aws_creds(path):
     response = vault_client.secrets.aws.generate_credentials(
         name=path.split('/')[-1],
         mount_point=path.rsplit('/', 2)[0],
@@ -50,6 +56,16 @@ def aws_last_mth_bill(start, end, vaultcreds):
         print(e)
         raise e
 
+# GCP Get Usage Functions
+def get_gcp_creds(path):
+    response = vault_client.secrets.gcp.generate_service_account_key(
+        roleset=path.split('/')[-1],
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response['data']['private_key_data']
+    credfile = json.loads(base64.b64decode(data))
+    return(credfile)
+
 def send_sns(message, subject, topic, vaultcreds):
     client = boto3.client(
         "sns",
@@ -61,10 +77,14 @@ def send_sns(message, subject, topic, vaultcreds):
 
 def lambda_handler(event, context):
     print("Received event: " + json.dumps(event, indent=2))
+    # Athenticate to Vault
+    auth_to_vault()
     # Process AWS Bill
     aws_creds=get_aws_creds(os.environ['VAULTAWSPATHS'])
     aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
     # Process GCP Bill
+    gcp_creds=get_gcp_creds(os.environ['VAULTGCPPATHS'])
+    print(gcp_creds)
 
     # Prepare and send SNS subject and message
     subject = 'Last Month Cloud Bills'
