@@ -5,6 +5,9 @@ import os
 import json
 import boto3
 import hvac
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from datetime import datetime, timedelta, timezone
 
 print("Loading function")
 
@@ -77,13 +80,28 @@ def send_sns(message, subject, topic, vaultcreds):
 # Process GCP Bill
 auth_to_vault()
 gcp_creds=get_gcp_creds('gcp/roleset/edu-app-key')
-print(gcp_creds)
+# print(gcp_creds)
 
-# Prepare and send SNS subject and message
-# subject = 'Last Month Cloud Bills'
-# message= (
-#     f"AWS Bill for last month is ${aws_bill}\n"
-#     + "GCP Bill for last month is $\n"
-#     + "Azure Bill for last month is $\n"
-# )
-# send_sns(message, subject, os.environ["SNS_ARN"], aws_creds)
+def get_gcp_billing_info(vaultcreds):
+    # Set up credentials and build the service
+    credentials = service_account.Credentials.from_service_account_info(
+        vaultcreds,
+        scopes=['https://www.googleapis.com/auth/cloud-platform']
+    )
+
+    cloudresourcemanager = build('cloudresourcemanager', 'v1', credentials=credentials)
+    cloudbilling = build('cloudbilling', 'v1', credentials=credentials)
+
+    # Get Project ID
+    project_data = cloudresourcemanager.projects().list().execute()
+    project_id = 'projects/' + project_data['projects'][0]['projectId']
+
+    # Get Billing Info
+    request = cloudbilling.projects().getBillingInfo(
+        name=project_id,
+    )
+
+    response = request.execute()
+    return(response['projectId'], response['billingAccountName'])
+
+print(get_gcp_billing_info(gcp_creds))
