@@ -1,7 +1,7 @@
 lambdaProps:
   checkBillCron: 0 22 ? * SUN *
   vaultUrl: http://vault.cmdlab-sandpit3.cmdlabs.com.au:8200
-  vaultAWSRole: 'aws/sandpit2/roles/lambda_role'
+  vaultAWSRole: 'aws/sandpit3/roles/lambda_role'
   vaultGCPRoleSet: 'gcp/roleset/edu-app-key'
   emailSubs:
     - 'carl.li@mantelgroup.com.au'
