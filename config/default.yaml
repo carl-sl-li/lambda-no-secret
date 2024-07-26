@@ -1,3 +1,4 @@
 lambdaProps:
+  useGcpSampleBilldataSet: true
   tags:
     DoNotNuke: 'false'

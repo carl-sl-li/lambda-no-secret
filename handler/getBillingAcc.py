@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import base64
 import os
@@ -7,7 +7,7 @@ import boto3
 import hvac
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
-from datetime import datetime, timedelta, timezone
+from google.cloud import bigquery
 
 print("Loading function")
 
@@ -79,7 +79,7 @@ def send_sns(message, subject, topic, vaultcreds):
 # aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
 # Process GCP Bill
 auth_to_vault()
-gcp_creds=get_gcp_creds('gcp/roleset/edu-app-key')
+gcp_creds=get_gcp_creds('gcp/carlli/roleset/lambda_role')
 # print(gcp_creds)
 
 def get_gcp_billing_info(vaultcreds):
@@ -104,4 +104,52 @@ def get_gcp_billing_info(vaultcreds):
     response = request.execute()
     return(response['projectId'], response['billingAccountName'])
 
-print(get_gcp_billing_info(gcp_creds))
+def gcp_last_mth_bill(vaultcreds):
+    # Set up credentials and build the service
+    credentials = service_account.Credentials.from_service_account_info(
+        vaultcreds,
+        scopes=['https://www.googleapis.com/auth/cloud-platform']
+    )
+
+    # Get Project ID
+    cloudresourcemanager = build('cloudresourcemanager', 'v1', credentials=credentials)
+    project_data = cloudresourcemanager.projects().list().execute()
+
+    # Define your project ID and dataset/table names
+    project_id = project_data['projects'][0]['projectId']
+    dataset = 'sample_billing'
+    table_name = 'sample_table'
+    gcp_sample_table = 'ctg-storage.bigquery_billing_export.gcp_billing_export_v1_01150A_B8F62B_47D999'
+
+    # Initialize the BigQuery client with the credentials
+    client = bigquery.Client(credentials=credentials, project=project_id)
+
+    # Calculate the time range for the last month
+    end_time = datetime.now(timezone.utc).replace(day=1)
+    start_time = (end_time - timedelta(days=1)).replace(day=1)
+
+    # Format the timestamps
+    start_time_str = start_time.strftime('%Y-%m-%d')
+    end_time_str = end_time.strftime('%Y-%m-%d')
+
+    # Construct the query
+    query = f"""
+    SELECT
+        SUM(cost) AS total_cost,
+    FROM
+        `{gcp_sample_table}`
+    WHERE
+    usage_start_time >= TIMESTAMP('{start_time_str}')
+    AND usage_start_time < TIMESTAMP('{end_time_str}')
+    """
+
+    # Execute the query
+    query_job = client.query(query)
+    results = query_job.result()
+
+    # Process and display the results
+    for row in results:
+        amount = row.total_cost
+    return(round(Decimal(amount), 2))
+
+print(gcp_last_mth_bill(gcp_creds))

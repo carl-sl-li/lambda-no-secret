@@ -13,7 +13,13 @@ google-api-python-client==2.135.0
 google-auth==2.31.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.0
+google-cloud-bigquery==3.25.0
+google-cloud-core==2.4.1
+google-crc32c==1.5.0
+google-resumable-media==2.7.1
 googleapis-common-protos==1.63.2
+grpcio==1.65.1
+grpcio-status==1.65.1
 httplib2==0.22.0
 humanfriendly==10.0
 hvac==2.2.0
@@ -21,6 +27,7 @@ idna==3.7
 importlib-resources==6.1.1
 jmespath==1.0.1
 oauthlib==3.2.2
+packaging==24.1
 property-manager==3.0
 proto-plus==1.24.0
 protobuf==5.27.2
