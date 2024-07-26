@@ -24,7 +24,7 @@ def auth_to_vault():
     vault_client.auth.aws.iam_login(os.environ['AWS_ACCESS_KEY_ID'], os.environ['AWS_SECRET_ACCESS_KEY'], os.environ['AWS_SESSION_TOKEN'])
 
 # AWS Functions
-def get_aws_creds(path):
+def get_aws_creds(path:str):
     response = vault_client.secrets.aws.generate_credentials(
         name=path.split('/')[-1],
         mount_point=path.rsplit('/', 2)[0],
@@ -33,7 +33,7 @@ def get_aws_creds(path):
     data = response['data']
     return(data)
 
-def aws_last_mth_bill(start, end, vaultcreds):
+def aws_last_mth_bill(start:str, end:str, vaultcreds:str):
     client = boto3.client(
         'ce',
         aws_access_key_id=vaultcreds['access_key'],
@@ -60,7 +60,7 @@ def aws_last_mth_bill(start, end, vaultcreds):
         raise e
 
 # GCP Functions
-def get_gcp_creds(path):
+def get_gcp_creds(path:str):
     response = vault_client.secrets.gcp.generate_service_account_key(
         roleset=path.split('/')[-1],
         mount_point=path.rsplit('/', 2)[0]
@@ -69,7 +69,7 @@ def get_gcp_creds(path):
     credfile = json.loads(base64.b64decode(data))
     return(credfile)
 
-def gcp_last_mth_bill(vaultcreds):
+def gcp_last_mth_bill(start:str, end:str, vaultcreds:str):
     # Set up credentials and build the service
     credentials = service_account.Credentials.from_service_account_info(
         vaultcreds,
@@ -79,25 +79,16 @@ def gcp_last_mth_bill(vaultcreds):
     # Get Project ID
     cloudresourcemanager = build('cloudresourcemanager', 'v1', credentials=credentials)
     project_data = cloudresourcemanager.projects().list().execute()
+    project_id = project_data['projects'][0]['projectId']
 
     # Define your project ID and dataset/table names
-    project_id = project_data['projects'][0]['projectId']
     dataset = 'sample_billing'
     table_name = 'sample_table'
     # gcp sample billing data for query
     gcp_sample_table = 'ctg-storage.bigquery_billing_export.gcp_billing_export_v1_01150A_B8F62B_47D999'
 
-
     # Initialize the BigQuery client with the credentials
     client = bigquery.Client(credentials=credentials, project=project_id)
-
-    # Calculate the time range for the last month
-    end_time = datetime.now(timezone.utc).replace(day=1)
-    start_time = (end_time - timedelta(days=1)).replace(day=1)
-
-    # Format the timestamps
-    start_time_str = start_time.strftime('%Y-%m-%d')
-    end_time_str = end_time.strftime('%Y-%m-%d')
 
     # Construct the query
     query = f"""
@@ -106,8 +97,8 @@ def gcp_last_mth_bill(vaultcreds):
     FROM
         `{gcp_sample_table}`
     WHERE
-    usage_start_time >= TIMESTAMP('{start_time_str}')
-    AND usage_start_time < TIMESTAMP('{end_time_str}')
+    usage_start_time >= TIMESTAMP('{start}')
+    AND usage_start_time < TIMESTAMP('{end}')
     """
 
     # Execute the query
@@ -137,7 +128,7 @@ def lambda_handler(event, context):
     aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
     # Process GCP Bill
     gcp_creds=get_gcp_creds(os.environ['VAULTGCPPATHS'])
-    gcp_bill=gcp_last_mth_bill(gcp_creds)
+    gcp_bill=gcp_last_mth_bill(startdate, enddate, gcp_creds)
 
     # Prepare and send SNS subject and message
     subject = 'Last Month Cloud Bills'

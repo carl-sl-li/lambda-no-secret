@@ -1,5 +1,6 @@
 lambdaProps:
   checkBillCron: 0 22 ? * SUN *
+  #gcpBillTableId: 'weighty-works-430022-u8.sample_billing.gcp_billing_export_v1_01CB25_64E872_28B129'
   vaultUrl: http://vault.cmdlab-sandpit3.cmdlabs.com.au:8200
   vaultAWSRole: 'aws/sandpit3/roles/lambda_role'
   vaultGCPRoleSet: 'gcp/carlli/roleset/lambda_role'

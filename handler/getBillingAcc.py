@@ -104,7 +104,7 @@ def get_gcp_billing_info(vaultcreds):
     response = request.execute()
     return(response['projectId'], response['billingAccountName'])
 
-def gcp_last_mth_bill(vaultcreds):
+def gcp_last_mth_bill(start:str, end:str, vaultcreds:str, sample:bool):
     # Set up credentials and build the service
     credentials = service_account.Credentials.from_service_account_info(
         vaultcreds,
@@ -114,33 +114,29 @@ def gcp_last_mth_bill(vaultcreds):
     # Get Project ID
     cloudresourcemanager = build('cloudresourcemanager', 'v1', credentials=credentials)
     project_data = cloudresourcemanager.projects().list().execute()
+    project_id = project_data['projects'][0]['projectId']
 
     # Define your project ID and dataset/table names
-    project_id = project_data['projects'][0]['projectId']
-    dataset = 'sample_billing'
-    table_name = 'sample_table'
+    table_id = 'weighty-works-430022-u8.sample_billing.gcp_billing_export_v1_01CB25_64E872_28B129'
+    # gcp sample billing data for query
     gcp_sample_table = 'ctg-storage.bigquery_billing_export.gcp_billing_export_v1_01150A_B8F62B_47D999'
 
+    if sample:
+        query_table = gcp_sample_table
+    else:
+        query_table = table_id
     # Initialize the BigQuery client with the credentials
     client = bigquery.Client(credentials=credentials, project=project_id)
-
-    # Calculate the time range for the last month
-    end_time = datetime.now(timezone.utc).replace(day=1)
-    start_time = (end_time - timedelta(days=1)).replace(day=1)
-
-    # Format the timestamps
-    start_time_str = start_time.strftime('%Y-%m-%d')
-    end_time_str = end_time.strftime('%Y-%m-%d')
 
     # Construct the query
     query = f"""
     SELECT
         SUM(cost) AS total_cost,
     FROM
-        `{gcp_sample_table}`
+        `{query_table}`
     WHERE
-    usage_start_time >= TIMESTAMP('{start_time_str}')
-    AND usage_start_time < TIMESTAMP('{end_time_str}')
+    usage_start_time >= TIMESTAMP('{start}')
+    AND usage_start_time < TIMESTAMP('{end}')
     """
 
     # Execute the query
@@ -152,4 +148,4 @@ def gcp_last_mth_bill(vaultcreds):
         amount = row.total_cost
     return(round(Decimal(amount), 2))
 
-print(gcp_last_mth_bill(gcp_creds))
+print(gcp_last_mth_bill(startdate, enddate, gcp_creds, True))

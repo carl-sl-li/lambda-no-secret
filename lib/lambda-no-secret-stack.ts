@@ -16,6 +16,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
     const configProp: {
       checkBillCron: string;
       emailSubs?: string[],
+      gcpBillTableId?: string,
       vaultAWSRole: string,
       vaultGCPRoleSet: string,
       vaultUrl: string,
@@ -63,6 +64,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
       environment: {
         SNS_ARN: billSnsTopic.topicArn,
         REGION: this.region,
+        GCP_BILL_TABLE: configProp.gcpBillTableId ?? '',
         VAULTAWSPATHS: configProp.vaultAWSRole,
         VAULTGCPPATHS: configProp.vaultGCPRoleSet,
         VAULTURL: configProp.vaultUrl,
