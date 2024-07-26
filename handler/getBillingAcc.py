@@ -1,5 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import date, timedelta
 import base64
 import os
 import json
@@ -8,6 +7,8 @@ import hvac
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.cloud import bigquery
+from azure.identity import ClientSecretCredential
+from azure.mgmt.consumption import ConsumptionManagementClient
 
 print("Loading function")
 
@@ -79,7 +80,7 @@ def send_sns(message, subject, topic, vaultcreds):
 # aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
 # Process GCP Bill
 auth_to_vault()
-gcp_creds=get_gcp_creds('gcp/carlli/roleset/lambda_role')
+# gcp_creds=get_gcp_creds('gcp/carlli/roleset/lambda_role')
 # print(gcp_creds)
 
 def get_gcp_billing_info(vaultcreds):
@@ -148,4 +149,46 @@ def gcp_last_mth_bill(start:str, end:str, vaultcreds:str, sample:bool):
         amount = row.total_cost
     return(round(Decimal(amount), 2))
 
-print(gcp_last_mth_bill(startdate, enddate, gcp_creds, True))
+def read_azure_config(path):
+    response = vault_client.secrets.azure.read_config(
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def get_azure_creds(path):
+    response = vault_client.secrets.azure.generate_credentials(
+        name=path.split('/')[-1],
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def azure_last_mth_bill(start, end, vaultcreds, config):
+
+    subscription_id = config['subscription_id']
+    # Authenticate using ClientSecretCredential
+    credential = ClientSecretCredential(
+        client_id=vaultcreds['client_id'],
+        client_secret=vaultcreds['client_secret'],
+        tenant_id=config['tenant_id']
+    )
+    
+    # Set up the ConsumptionManagementClient
+    client = ConsumptionManagementClient(credential, subscription_id)    
+
+    # Retrieve usage details
+    usage_details = client.usage_details.list(
+        scope=f"/subscriptions/{subscription_id}/",
+        expand='properties/meterDetails',
+        filter=f"properties/usageStart ge '{start}' and properties/usageEnd le '{end}'"
+    )
+
+    # Print the usage details
+    for item in usage_details:
+        print(f"Resource: {item.name}, Cost: {item.properties.pretax_cost}, Date: {item.properties.usage_start}")
+
+azure_config = read_azure_config('azure/carlli/roles/lambda_role')
+azure_cred = get_azure_creds('azure/carlli/roles/lambda_role')
+azure_last_mth_bill(startdate, enddate, azure_cred, azure_config)
+
