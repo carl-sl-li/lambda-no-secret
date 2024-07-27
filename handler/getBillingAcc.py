@@ -8,16 +8,14 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.cloud import bigquery
 from azure.identity import ClientSecretCredential
-from azure.mgmt.consumption import ConsumptionManagementClient
 from azure.mgmt.costmanagement import CostManagementClient
 
 print("Loading function")
 
-today = date.today()
-firstofmonth = today.replace(day=1)
-lastmonth = firstofmonth - timedelta(days=1)
-startdate = lastmonth.strftime('%Y-%m')+'-01'
-enddate = today.strftime('%Y-%m')+'-01'
+end_time = datetime.now(timezone.utc).replace(day=1)
+start_time = (end_time - timedelta(days=1)).replace(day=1)
+startdate = start_time.strftime('%Y-%m')+'-01'
+enddate = end_time.strftime('%Y-%m')+'-01'
 vault_client = hvac.Client(url=os.environ['VAULT_ADDR'])
 
 def auth_to_vault():
@@ -165,7 +163,7 @@ def get_azure_creds(path):
     data = response
     return(data)
 
-def azure_last_mth_bill(vaultcreds, config):
+def azure_last_mth_bill(start:datetime, end:datetime, vaultcreds, config):
 
     subscription_id = config['subscription_id']
     # Authenticate using ClientSecretCredential
@@ -178,18 +176,13 @@ def azure_last_mth_bill(vaultcreds, config):
     # Create a CostManagementClient
     client = CostManagementClient(credential)  
 
-    # Define the time period for the query (last month)
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date.replace(day=1) - timedelta(days=1)
-    start_date = start_date.replace(day=1)
-
     # Create the query
     query = {
         "type": "Usage",
         "timeframe": "Custom",
         "timePeriod": {
-            "from": start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "to": end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            "from": start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "to": end.strftime('%Y-%m-%dT%H:%M:%SZ')
         },
         "dataset": {
             "granularity": "None",
@@ -217,4 +210,4 @@ def azure_last_mth_bill(vaultcreds, config):
 
 azure_config = read_azure_config('azure/carlli/roles/lambda_role')
 azure_cred = get_azure_creds('azure/carlli/roles/lambda_role')
-azure_last_mth_bill(azure_cred, azure_config)
+azure_last_mth_bill(start_time, end_time, azure_cred, azure_config)
