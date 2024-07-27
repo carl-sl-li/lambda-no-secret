@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import base64
 import os
 import json
@@ -9,6 +9,7 @@ from google.oauth2 import service_account
 from google.cloud import bigquery
 from azure.identity import ClientSecretCredential
 from azure.mgmt.consumption import ConsumptionManagementClient
+from azure.mgmt.costmanagement import CostManagementClient
 
 print("Loading function")
 
@@ -164,7 +165,7 @@ def get_azure_creds(path):
     data = response
     return(data)
 
-def azure_last_mth_bill(start, end, vaultcreds, config):
+def azure_last_mth_bill(vaultcreds, config):
 
     subscription_id = config['subscription_id']
     # Authenticate using ClientSecretCredential
@@ -174,21 +175,46 @@ def azure_last_mth_bill(start, end, vaultcreds, config):
         tenant_id=config['tenant_id']
     )
     
-    # Set up the ConsumptionManagementClient
-    client = ConsumptionManagementClient(credential, subscription_id)    
+    # Create a CostManagementClient
+    client = CostManagementClient(credential)  
 
-    # Retrieve usage details
-    usage_details = client.usage_details.list(
-        scope=f"/subscriptions/{subscription_id}/",
-        expand='properties/meterDetails',
-        filter=f"properties/usageStart ge '{start}' and properties/usageEnd le '{end}'"
+    # Define the time period for the query (last month)
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date.replace(day=1) - timedelta(days=1)
+    start_date = start_date.replace(day=1)
+
+    # Create the query
+    query = {
+        "type": "Usage",
+        "timeframe": "Custom",
+        "timePeriod": {
+            "from": start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "to": end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        },
+        "dataset": {
+            "granularity": "None",
+            "aggregation": {
+                "totalCost": {
+                    "name": "Cost",
+                    "function": "Sum"
+                }
+            }
+        }
+    }
+
+    # Execute the query
+    result = client.query.usage(
+        scope=f"/subscriptions/{subscription_id}",
+        parameters=query
     )
 
-    # Print the usage details
-    for item in usage_details:
-        print(f"Resource: {item.name}, Cost: {item.properties.pretax_cost}, Date: {item.properties.usage_start}")
+    # Print the total cost
+    if result and result.rows:
+        total_cost = result.rows[0][0]
+        print(f"Total cost for the last month: ${total_cost}")
+    else:
+        print("No cost data available for the specified period.")
 
 azure_config = read_azure_config('azure/carlli/roles/lambda_role')
 azure_cred = get_azure_creds('azure/carlli/roles/lambda_role')
-azure_last_mth_bill(startdate, enddate, azure_cred, azure_config)
-
+azure_last_mth_bill(azure_cred, azure_config)
