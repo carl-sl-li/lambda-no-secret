@@ -71,7 +71,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
         VAULTAZUREPATHS: configProp.vaultAzureRole,
         VAULTURL: configProp.vaultUrl,
       },
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(120),
       layers: [sharedLayer],
     });
 
