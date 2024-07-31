@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import base64
 import json
@@ -8,17 +8,18 @@ import hvac
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.cloud import bigquery
+from azure.identity import ClientSecretCredential
+from azure.mgmt.costmanagement import CostManagementClient
 
 print("Loading function")
 
 # Define Vault python client
 vault_client = hvac.Client(url=os.environ['VAULTURL'])
 
-today = date.today()
-firstofmonth = today.replace(day=1)
-lastmonth = firstofmonth - timedelta(days=1)
-startdate = lastmonth.strftime('%Y-%m')+'-01'
-enddate = today.strftime('%Y-%m')+'-01'
+end_time = datetime.now(timezone.utc).replace(day=1)
+start_time = (end_time - timedelta(days=1)).replace(day=1)
+startdate = start_time.strftime('%Y-%m')+'-01'
+enddate = end_time.strftime('%Y-%m')+'-01'
 
 def auth_to_vault():
     vault_client.auth.aws.iam_login(os.environ['AWS_ACCESS_KEY_ID'], os.environ['AWS_SECRET_ACCESS_KEY'], os.environ['AWS_SESSION_TOKEN'])
@@ -110,6 +111,67 @@ def gcp_last_mth_bill(start:str, end:str, vaultcreds:str):
         amount = row.total_cost
     return(round(Decimal(amount), 2))
 
+# Azure Functions
+def read_azure_config(path):
+    response = vault_client.secrets.azure.read_config(
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def get_azure_creds(path):
+    response = vault_client.secrets.azure.generate_credentials(
+        name=path.split('/')[-1],
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def azure_last_mth_bill(start:datetime, end:datetime, vaultcreds, config):
+
+    subscription_id = config['subscription_id']
+    # Authenticate using ClientSecretCredential
+    credential = ClientSecretCredential(
+        client_id=vaultcreds['client_id'],
+        client_secret=vaultcreds['client_secret'],
+        tenant_id=config['tenant_id']
+    )
+    
+    # Create a CostManagementClient
+    client = CostManagementClient(credential)  
+
+    # Create the query
+    query = {
+        "type": "Usage",
+        "timeframe": "Custom",
+        "timePeriod": {
+            "from": start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "to": end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        },
+        "dataset": {
+            "granularity": "None",
+            "aggregation": {
+                "totalCost": {
+                    "name": "Cost",
+                    "function": "Sum"
+                }
+            }
+        }
+    }
+
+    # Execute the query
+    result = client.query.usage(
+        scope=f"/subscriptions/{subscription_id}",
+        parameters=query
+    )
+
+    # Print the total cost
+    if result and result.rows:
+        total_cost = result.rows[0][0]
+        return(round(Decimal(total_cost), 2))
+    else:
+        return(round(Decimal(0), 2))
+
 def send_sns(message, subject, topic, vaultcreds):
     client = boto3.client(
         "sns",
@@ -129,12 +191,16 @@ def lambda_handler(event, context):
     # Process GCP Bill
     gcp_creds=get_gcp_creds(os.environ['VAULTGCPPATHS'])
     gcp_bill=gcp_last_mth_bill(startdate, enddate, gcp_creds)
+    # Process Azure Bill
+    azure_config = read_azure_config(os.environ['VAULTAZUREPATHS'])
+    azure_cred = get_azure_creds(os.environ['VAULTAZUREPATHS'])
+    azure_bill = azure_last_mth_bill(start_time, end_time, azure_cred, azure_config)
 
     # Prepare and send SNS subject and message
     subject = 'Last Month Cloud Bills'
     message= (
         f"AWS Bill for last month is ${aws_bill}\n"
         + f"GCP Bill for last month is: ${gcp_bill}\n"
-        + "Azure Bill for last month is $\n"
+        + f"Azure Bill for last month is ${azure_bill}\n"
     )
     send_sns(message, subject, os.environ["SNS_ARN"], aws_creds)

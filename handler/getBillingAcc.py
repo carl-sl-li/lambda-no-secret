@@ -1,5 +1,4 @@
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
 import base64
 import os
 import json
@@ -8,14 +7,15 @@ import hvac
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.cloud import bigquery
+from azure.identity import ClientSecretCredential
+from azure.mgmt.costmanagement import CostManagementClient
 
 print("Loading function")
 
-today = date.today()
-firstofmonth = today.replace(day=1)
-lastmonth = firstofmonth - timedelta(days=1)
-startdate = lastmonth.strftime('%Y-%m')+'-01'
-enddate = today.strftime('%Y-%m')+'-01'
+end_time = datetime.now(timezone.utc).replace(day=1)
+start_time = (end_time - timedelta(days=1)).replace(day=1)
+startdate = start_time.strftime('%Y-%m')+'-01'
+enddate = end_time.strftime('%Y-%m')+'-01'
 vault_client = hvac.Client(url=os.environ['VAULT_ADDR'])
 
 def auth_to_vault():
@@ -79,7 +79,7 @@ def send_sns(message, subject, topic, vaultcreds):
 # aws_bill=aws_last_mth_bill(startdate, enddate, aws_creds)
 # Process GCP Bill
 auth_to_vault()
-gcp_creds=get_gcp_creds('gcp/carlli/roleset/lambda_role')
+# gcp_creds=get_gcp_creds('gcp/carlli/roleset/lambda_role')
 # print(gcp_creds)
 
 def get_gcp_billing_info(vaultcreds):
@@ -148,4 +148,66 @@ def gcp_last_mth_bill(start:str, end:str, vaultcreds:str, sample:bool):
         amount = row.total_cost
     return(round(Decimal(amount), 2))
 
-print(gcp_last_mth_bill(startdate, enddate, gcp_creds, True))
+def read_azure_config(path):
+    response = vault_client.secrets.azure.read_config(
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def get_azure_creds(path):
+    response = vault_client.secrets.azure.generate_credentials(
+        name=path.split('/')[-1],
+        mount_point=path.rsplit('/', 2)[0]
+    )
+    data = response
+    return(data)
+
+def azure_last_mth_bill(start:datetime, end:datetime, vaultcreds, config):
+
+    subscription_id = config['subscription_id']
+    # Authenticate using ClientSecretCredential
+    credential = ClientSecretCredential(
+        client_id=vaultcreds['client_id'],
+        client_secret=vaultcreds['client_secret'],
+        tenant_id=config['tenant_id']
+    )
+    
+    # Create a CostManagementClient
+    client = CostManagementClient(credential)  
+
+    # Create the query
+    query = {
+        "type": "Usage",
+        "timeframe": "Custom",
+        "timePeriod": {
+            "from": start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "to": end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        },
+        "dataset": {
+            "granularity": "None",
+            "aggregation": {
+                "totalCost": {
+                    "name": "Cost",
+                    "function": "Sum"
+                }
+            }
+        }
+    }
+
+    # Execute the query
+    result = client.query.usage(
+        scope=f"/subscriptions/{subscription_id}",
+        parameters=query
+    )
+
+    # Print the total cost
+    if result and result.rows:
+        total_cost = result.rows[0][0]
+        print(f"Total cost for the last month: ${total_cost}")
+    else:
+        print("No cost data available for the specified period.")
+
+azure_config = read_azure_config('azure/carlli/roles/lambda_role')
+azure_cred = get_azure_creds('azure/carlli/roles/lambda_role')
+azure_last_mth_bill(start_time, end_time, azure_cred, azure_config)

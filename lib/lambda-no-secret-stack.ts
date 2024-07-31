@@ -19,6 +19,7 @@ export class LambdaNoSecretStack extends cdk.Stack {
       gcpBillTableId?: string,
       vaultAWSRole: string,
       vaultGCPRoleSet: string,
+      vaultAzureRole: string,
       vaultUrl: string,
     } = config.get('lambdaProps');
 
@@ -67,9 +68,10 @@ export class LambdaNoSecretStack extends cdk.Stack {
         GCP_BILL_TABLE: configProp.gcpBillTableId ?? '',
         VAULTAWSPATHS: configProp.vaultAWSRole,
         VAULTGCPPATHS: configProp.vaultGCPRoleSet,
+        VAULTAZUREPATHS: configProp.vaultAzureRole,
         VAULTURL: configProp.vaultUrl,
       },
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(120),
       layers: [sharedLayer],
     });
 
