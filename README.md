@@ -19,6 +19,11 @@ Requirements: Docker – needs to be installed on your local machine
 
 cryptography library contains native code and that code is compiled for the architecture of the current machine. AWS Lambda needs Layers compiled as Linux ELF shared objects, hence using a python:3.9 docker image to build python layers.
 ```
+$ docker run -it --mount type=bind,src=$(pwd),dst=$(pwd)/ python:3.9 pip install -r $(pwd)/requirements.txt --target $(pwd)/python --platform manylinux2014_x86_64 --only-binary=:all:
+```
+
+Alternatively:
+```
 $ docker compose run --rm python
 $ cd python_layers
 $ pip install --platform manylinux2014_x86_64 --only-binary=:all: -r requirements.txt -t ./python
