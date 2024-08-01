@@ -1,8 +1,0 @@
-services:
-  python:
-    # used for local development
-    image: 'python:3.9'
-    working_dir: '/Users/carlli/code/personal'
-    volumes:
-      - './:/Users/carlli/code/personal'
-    command: bash
