@@ -82,11 +82,7 @@ def gcp_last_mth_bill(start:str, end:str, vaultcreds:str):
     project_data = cloudresourcemanager.projects().list().execute()
     project_id = project_data['projects'][0]['projectId']
 
-    # Define your project ID and dataset/table names
-    dataset = 'sample_billing'
-    table_name = 'sample_table'
-    # gcp sample billing data for query
-    gcp_sample_table = 'ctg-storage.bigquery_billing_export.gcp_billing_export_v1_01150A_B8F62B_47D999'
+    gcp_table = os.environ['GCP_BILL_TABLE']
 
     # Initialize the BigQuery client with the credentials
     client = bigquery.Client(credentials=credentials, project=project_id)
@@ -96,7 +92,7 @@ def gcp_last_mth_bill(start:str, end:str, vaultcreds:str):
     SELECT
         SUM(cost) AS total_cost,
     FROM
-        `{gcp_sample_table}`
+        `{gcp_table}`
     WHERE
     usage_start_time >= TIMESTAMP('{start}')
     AND usage_start_time < TIMESTAMP('{end}')
