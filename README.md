@@ -22,3 +22,21 @@ cryptography library contains native code and that code is compiled for the arch
 $ cd python_layers
 $ docker run -it --mount type=bind,src=$(pwd),dst=$(pwd)/ python:3.9 pip install -r $(pwd)/requirements.txt --target $(pwd)/python --platform manylinux2014_x86_64 --only-binary=:all:
 ```
+
+## CDK Parameters
+
+config/development.yaml
+
+`checkBillCron` - How often to run the Lambda function (e.g. 0 22 ? * SUN *)
+
+`gcpBillTableId` - GCP BigQuery Bill Data Table ID (e.g ctg-storage.bigquery_billing_export.gcp_billing_export_v1_01150A_B8F62B_47D999)
+  
+`vaultUrl` - URL of hashcorp vault (e.g. http://example.com.au:8200)
+
+`vaultAWSRole` - Hashicop Vault Path to the AWS Secrets (e.g. aws/sandpit1/roles/lambda_role)
+
+`vaultGCPRoleSet` - Hashicop Vault Path to the GCP Secrets (e.g. gcp/sandpit1/roleset/lambda_role)
+
+`vaultAzureRole` - Hashicop Vault Path to the Azure Secrets (e.g. azure/sandpit1/roles/lambda_role)
+  
+`emailSubs` - list of email(s) to recieve SNS email notification (e.g. [ john@example.com ])
