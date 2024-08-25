@@ -1,6 +1,6 @@
-# Welcome to your CDK TypeScript project
+# Demo Lambda function which authenticate to Hashicorp Vault for multi-cloud tasks
 
-This is a blank project for CDK development with TypeScript.
+⚠️ **Warning:** This code is intended for proof of concept purposes only. It is not recommended for production use. Please ensure proper security, error handling, and testing before using any part of this code in a production environment.
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
